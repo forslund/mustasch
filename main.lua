@@ -95,6 +95,7 @@ function love.load()
 
     map = sti("data/levels/level1.lua")
     for _, layer in ipairs(map.layers) do
+        layer.visible = false
         if layer.name == "ground" then
             ground_layer = layer
         elseif layer.name == "objects" then
@@ -122,8 +123,6 @@ function love.load()
             objects.key = create_key(obj.x, obj.y)
         end
     end
-    ground_layer.visible = false
-    objects_layer.visible = false
 
     love.graphics.setBackgroundColor(0.41, 0.53, 0.97)
     love.window.setMode(640, 480)
@@ -178,6 +177,26 @@ function love.update(dt)
     end
 end
 
+function draw_layer(map, layer, camera)
+    if camera == nil then
+        camera = {}
+        camera.x = 0
+        camera.y = 0
+    end
+    -- find and enable drawing
+    for _, l in ipairs(map.layers) do
+        if l.name == layer then
+            active = l
+            active.visible = true
+            break
+        end
+    end
+    if active then
+        map:draw(-camera.x)
+        active.visible = false
+    end
+end
+
 function love.draw()
     camera = {}
     camera.x = objects.player.body:getX() - 320
@@ -188,25 +207,9 @@ function love.draw()
     -- set the drawing color to green for the ground
     love.graphics.setColor(0.28, 0.63, 0.05)
     love.graphics.setColor(1, 1, 1)
-    for _, layer in ipairs(map.layers) do
-        if layer.name == "foreground" then
-            foreground = layer
-        end
-        if layer.name == "background" then
-            background = layer
-        end
-        if layer.name == "parallax" then
-            parallax = layer
-        end
-    end
 
-    foreground.visible = false
-    background.visible = false
-    map:draw()
-    parallax.visible = false
-    background.visible = true
-    map:draw(-camera.x)
-    foreground.visible = true
+    draw_layer(map, "parallax")
+    draw_layer(map, "background", camera)
     --love.graphics.polygon("fill", objects.player.body:getWorldPoints(objects.player.shape:getPoints()))
     if objects.player.direction_right then
         love.graphics.draw(objects.player.gfx, objects.player.body:getX() - 15 - camera.x,
@@ -227,10 +230,7 @@ function love.draw()
     end
     
     love.graphics.setColor(1, 1, 1)
-    background.visible = false
-    map:draw(-camera.x)
-    background.visible = true
-    parallax.visible = true
+    draw_layer(map, "foreground", camera)
 
     if debug then
         love.graphics.print(text, 10, 10)
