@@ -1,4 +1,6 @@
 local sti = require ("sti")
+require ("menu")
+state = "loading"
 debug = false
 text = ""
 persisting = 0
@@ -134,6 +136,17 @@ end
 
 jumping = false
 function love.update(dt)
+    if state == "loading" then
+        state = loading:update(dt)
+    elseif state == "menu" then
+        state = menu:update(dt)
+    elseif state == "level" then
+        state = level_update(dt)
+    end
+end
+
+
+function level_update(dt)
     world:update(dt) --this puts the world into motion
     if string.len(text) > 768 then    -- cleanup when 'text' gets too long
         text = "" 
@@ -175,7 +188,20 @@ function love.update(dt)
     if key_pressed then
         objects.player.body:applyLinearImpulse(x * dt, y * dt)
     end
+
+    return "level"
 end
+
+function love.draw()
+    if state == "loading" then
+        loading:draw()
+    elseif state == "menu" then
+        menu:draw()
+    elseif state == "level" then
+        draw_level()
+    end
+end
+
 
 function draw_layer(map, layer, camera)
     if camera == nil then
@@ -197,7 +223,8 @@ function draw_layer(map, layer, camera)
     end
 end
 
-function love.draw()
+
+function draw_level()
     camera = {}
     camera.x = objects.player.body:getX() - 320
     if camera.x < 0 then
