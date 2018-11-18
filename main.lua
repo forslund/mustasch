@@ -99,12 +99,20 @@ function love.load()
 
     objects = {}
     camera = {0, 0}
+
+    load_level("level1")
+end
+
+
+function load_level(level_name)
+
+    level_path = "data/levels/" .. level_name .. ".lua"
     objects.ground = {}
 
     objects.joints = {}
     objects.blocks = {}
 
-    map = sti("data/levels/level1.lua")
+    map = sti(level_path)
     for _, layer in ipairs(map.layers) do
         layer.visible = false
         if layer.name == "ground" then
