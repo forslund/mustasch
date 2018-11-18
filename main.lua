@@ -47,8 +47,10 @@ function postSolve(a, b, coll, normalimpulse, tangentimpulse)
 -- we won't do anything with this function
 end
 
-function create_key(x, y)
+function create_key(x, y, name)
     local key = {}
+    key.type = "key"
+    key.name = name
     key.body = love.physics.newBody(world, x, y, "dynamic")
     key.body:setGravityScale(0.1)
     key.body:setLinearDamping(5)
@@ -64,6 +66,8 @@ end
 
 function create_player(x, y)
     local player = {}
+    player.type = "Player"
+    player.name = "Player"
     -- place the body in the center of the world and make it dynamic,
     -- so it can move around
     player.body = love.physics.newBody(world, x, y, "dynamic")
@@ -76,16 +80,20 @@ function create_player(x, y)
     player.fixture:setUserData("Player")
     player.gfx = love.graphics.newImage("data/gfx/hero1.png")
     player.direction_right = true
+    player.jumping = false
+
     return player
 end
 
 
-function create_block(x, y)
+function create_block(x, y, w, h, name)
     local block = {}
+    block.type = "Block"
+    block.name = name
     block.body = love.physics.newBody(world, x, y, "dynamic")
-    block.shape = love.physics.newRectangleShape(0, 0, 100, 50)
-    block.fixture = love.physics.newFixture(block.body, block.shape, 0.5) -- A higher density gives it more mass.
-    block.setUserData("Block")
+    block.shape = love.physics.newRectangleShape(0, 0, w, h)
+    block.fixture = love.physics.newFixture(block.body, block.shape, 0.2) -- A higher density gives it more mass.
+    block.fixture:setUserData("Block")
     return block
 end
 
@@ -101,6 +109,38 @@ function love.load()
     camera = {0, 0}
 
     load_level("level1")
+end
+
+function create_rope(rope)
+    local obj1
+    local obj2
+    for _, obj in ipairs(objects.blocks) do
+        if obj.name == rope.properties.obj1 then
+            obj1 = obj
+        elseif obj.name == rope.properties.obj2 then
+            obj2 = obj
+        end
+    end
+    length = rope.properties.length
+    offset = rope.properties.offset
+    for _, obj in ipairs(objects.ground) do
+        if obj.name == rope.properties.obj1 then
+            obj1 = obj
+        elseif obj.name == rope.properties.obj2 then
+            obj2 = obj
+        end
+    end
+    print(rope.name, obj1.name, obj2.name)
+    print(rope.height)
+    print(rope.x, obj2.body:getX(), offset)
+    joint = love.physics.newRopeJoint(obj1.body,
+                                      obj2.body,
+                                      rope.x,
+                                      rope.y,
+                                      obj2.body:getX() + offset,
+                                      obj2.body:getY(),
+                                      length, true)
+    table.insert(objects.joints, joint)
 end
 
 
@@ -122,24 +162,35 @@ function load_level(level_name)
         end
     end
     for _, obj in ipairs(ground_layer.objects) do
-        print(_, obj.name, obj.x, obj.y, obj.width, obj.height, obj.layer.name)
-        print("Creating ground")
         ground = {}
+        ground.name = obj.name
+        ground.type = "Ground"
         ground.body = love.physics.newBody(
             world, obj.x + obj.width / 2, obj.y + obj.height/ 2)
         ground.shape = love.physics.newRectangleShape(obj.width,
                                                       obj.height)
         ground.fixture = love.physics.newFixture(ground.body, ground.shape)
+        ground.fixture:setFriction(0.8)
         ground.fixture:setUserData("Ground")
         table.insert(objects.ground, ground)
     end
 
     for _, obj in ipairs(objects_layer.objects) do
-        if obj.name == "player" then
+        if obj.type == "player" then
             objects.player = create_player(obj.x, obj.y)
+        elseif obj.type == "key" then
+            objects.key = create_key(obj.x, obj.y, obj.name)
+        elseif obj.type == "block" then
+            table.insert(objects.blocks,
+                         create_block(obj.x, obj.y, obj.width, obj.height,
+                                      obj.name))
         end
-        if obj.name == "key" then
-            objects.key = create_key(obj.x, obj.y)
+    end
+    for _, obj in ipairs(objects_layer.objects) do
+        print(obj.type)
+        if obj.type == "rope" then
+            print('CREATING ROPE')
+            create_rope(obj)
         end
     end
 
@@ -268,9 +319,10 @@ function draw_level()
                        objects.key.body:getY() - 10, 0, 0.1, 0.1)
     end
     
-    love.graphics.setColor(0.40, 0.20, 0.20)
+    love.graphics.setColor(0.3, 0.3, 0.80)
     for _, block in ipairs(objects.blocks) do
-        love.graphics.polygon("fill", block.body:getWorldPoints(block.shape:getPoints()))
+        x1, y1, x2, y2, x3, y3, x4, y4 = block.body:getWorldPoints(block.shape:getPoints())
+        love.graphics.polygon("fill", x1 - camera.x, y1, x2 - camera.x, y2, x3 - camera.x, y3, x4 - camera.x, y4)
     end
     
     love.graphics.setColor(1, 1, 1)
@@ -278,5 +330,13 @@ function draw_level()
 
     if debug then
         love.graphics.print(text, 10, 10)
+    end
+
+    love.graphics.setColor(1,1,1,1)
+    love.graphics.setLineWidth(3)
+    love.graphics.setLineStyle("smooth")
+    for _, j in ipairs(objects.joints) do
+        x1, y1, x2, y2 = j:getAnchors()
+        love.graphics.line(x1 - camera.x, y1, x2 - camera.x, y2)
     end
 end
