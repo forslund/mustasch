@@ -12,9 +12,18 @@ function beginContact(a, b, coll)
             (a:getUserData() == "Key" and b:getUserData() == "Player") then
         taken = "Key"
     elseif a:getUserData() == "Player" and b:getUserData() == "Ground" or
+            a:getUserData() == "Player" and b:getUserData() == "Block" then
+        print(y)
+        if y > 0 then
+            dunk_sound:play()
+            objects.player.jumping = false
+        end
+    elseif a:getUserData() == "Block" and b:getUserData() == "Player" or
             a:getUserData() == "Ground" and b:getUserData() == "Player" then
+        print(y)
         if y < 0 then
             dunk_sound:play()
+            objects.player.jumping = false
         end
     end
 end
