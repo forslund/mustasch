@@ -237,17 +237,25 @@ function level_update(dt)
     y = 0
     -- Keyboard inputs updates the force of the object
     if love.keyboard.isDown("right") then
-        x = 120
+        if not objects.player.jumping then
+            x = 120
+        else
+            x = 30
+        end
         key_pressed = true
         objects.player.direction_right = true
     elseif love.keyboard.isDown("left") then
-        x = -120
+        if not objects.player.jumping then
+            x = -120
+        else
+            x = -30
+        end
         key_pressed = true
         objects.player.direction_right = false
     end
-    if love.keyboard.isDown("up") and not jumping then
+    if love.keyboard.isDown("up") and not objects.player.jumping then
         y = -100 * 60
-        jumping = true
+        objects.player.jumping = true
         key_pressed = true
     end
     if not love.keyboard.isDown("up") then
