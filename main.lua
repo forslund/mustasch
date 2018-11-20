@@ -219,7 +219,6 @@ function load_level(level_name)
     dunk_sound:setVolume(0.15)
 end
 
-jumping = false
 function love.update(dt)
     if state == "loading" then
         state = loading:update(dt)
