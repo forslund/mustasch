@@ -343,6 +343,8 @@ function draw_level()
     camera.x = objects.player.body:getX() - 320
     if camera.x < 0 then
         camera.x = 0
+    elseif camera.x > map.width * 32  - 640 then
+        camera.x = map.width * 32 - 640
     end
 
     -- set the drawing color to green for the ground
