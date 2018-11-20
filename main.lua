@@ -57,7 +57,7 @@ function create_key(x, y, name)
     key.shape = love.physics.newRectangleShape(5, 10)
     -- Attach fixture to body and give it a density of 1.
     key.fixture = love.physics.newFixture(key.body, key.shape, 0.0001)
-    key.fixture:setRestitution(0.5) --let the ball bounce
+    key.fixture:setRestitution(0.5)
     key.fixture:setUserData("Key")
     key.gfx = love.graphics.newImage("data/gfx/key.png")
     return key
@@ -68,6 +68,7 @@ function create_player(x, y)
     local player = {}
     player.type = "Player"
     player.name = "Player"
+    player.has_key = false
     -- place the body in the center of the world and make it dynamic,
     -- so it can move around
     player.body = love.physics.newBody(world, x, y, "dynamic")
@@ -95,7 +96,7 @@ function create_player(x, y)
 end
 
 
-function create_block(x, y, w, h, name)
+function create_block(x, y, w, h, name, no_rotate)
     local block = {}
     block.type = "Block"
     block.name = name
@@ -103,6 +104,10 @@ function create_block(x, y, w, h, name)
     block.shape = love.physics.newRectangleShape(0, 0, w, h)
     block.fixture = love.physics.newFixture(block.body, block.shape, 0.2) -- A higher density gives it more mass.
     block.fixture:setUserData("Block")
+    block.body:setLinearDamping(0.5)
+    if no_rotate then
+        block.body:setFixedRotation(true)
+    end
     return block
 end
 
@@ -115,6 +120,9 @@ function love.load()
     taken = "" -- Collectibles picked up in collision
 
     objects = {}
+    objects.invisible = {}
+    objects.blocks = {}
+    objects.joints = {}
     camera = {0, 0}
 
     load_level("level1")
@@ -192,7 +200,7 @@ function load_level(level_name)
         elseif obj.type == "block" then
             table.insert(objects.blocks,
                          create_block(obj.x, obj.y, obj.width, obj.height,
-                                      obj.name))
+                                      obj.name, obj.properties.no_rotate))
         end
     end
     for _, obj in ipairs(objects_layer.objects) do
@@ -229,6 +237,7 @@ function level_update(dt)
         text = "" 
     end
     if taken == "Key" then
+        objects.player.has_key = true
         joint = love.physics.newRopeJoint(objects.player.body,
                                           objects.key.body,
                                           objects.player.body:getX(),
@@ -236,7 +245,7 @@ function level_update(dt)
                                           objects.key.body:getX(),
                                           objects.key.body:getY(),
                                           30, false)
-        table.insert(objects.joints, joint)
+        table.insert(objects.invisible, joint)
         key_sound:play()
         taken = ""
     end
@@ -378,6 +387,7 @@ function draw_level()
         love.graphics.print(text, 10, 10)
     end
 
+    -- Draw ropes
     love.graphics.setColor(1,1,1,1)
     love.graphics.setLineWidth(3)
     love.graphics.setLineStyle("smooth")
