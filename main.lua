@@ -187,7 +187,7 @@ function load_level(level_name)
         ground.shape = love.physics.newRectangleShape(obj.width,
                                                       obj.height)
         ground.fixture = love.physics.newFixture(ground.body, ground.shape)
-        ground.fixture:setFriction(0.8)
+        ground.fixture:setFriction(0.6)
         ground.fixture:setUserData("Ground")
         table.insert(objects.ground, ground)
     end
