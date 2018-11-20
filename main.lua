@@ -79,8 +79,17 @@ function create_player(x, y)
     player.fixture:setRestitution(0.1) --let the ball bounce
     player.fixture:setUserData("Player")
     player.gfx = love.graphics.newImage("data/gfx/hero1.png")
+    player.jump_gfx = love.graphics.newImage("data/gfx/hero4.png")
     player.direction_right = true
     player.jumping = false
+    player.walking = false
+    player.walk_animation = {}
+    player.walk_animation.gfx = {}
+    table.insert(player.walk_animation.gfx,
+                 love.graphics.newImage("data/gfx/hero2.png"))
+    table.insert(player.walk_animation.gfx,
+                 love.graphics.newImage("data/gfx/hero3.png"))
+    player.walk_animation.time = 0
 
     return player
 end
@@ -232,11 +241,13 @@ function level_update(dt)
         taken = ""
     end
 
-    key_pressed = False
+    objects.player.walking = false
+    key_pressed = false
     x = 0
     y = 0
     -- Keyboard inputs updates the force of the object
     if love.keyboard.isDown("right") then
+        objects.player.walking = true
         if not objects.player.jumping then
             x = 120
         else
@@ -251,6 +262,7 @@ function level_update(dt)
             x = -30
         end
         key_pressed = true
+        objects.player.walking = true
         objects.player.direction_right = false
     end
     if love.keyboard.isDown("up") and not objects.player.jumping then
@@ -258,16 +270,34 @@ function level_update(dt)
         objects.player.jumping = true
         key_pressed = true
     end
-    if not love.keyboard.isDown("up") then
-        jumping = false
-    end
+
+    animate_player(objects.player.walking, dt)
+
     if key_pressed then
-        objects.player.body:applyLinearImpulse(x * dt, y * dt)
+        objects.player.body:applyForce(x, y * 1.1)
+        --objects.player.body:applyLinearImpulse(x * dt, y * dt)
     end
 
     return "level"
 end
 
+function animate_player(walking, dt)
+    print(dt)
+    if walking then
+        objects.player.walk_animation.time = objects.player.walk_animation.time + dt
+    else
+        objects.player.walk_animation.time = 0
+    end
+    if objects.player.walk_animation.time < 0.5 then
+        objects.player.walk_animation.frame = 1
+    elseif objects.player.walk_animation.time <= 1 then
+        objects.player.walk_animation.frame = 2
+    else
+        objects.player.walk_animation.time = 0
+    end
+end
+
+ 
 function love.draw()
     if state == "loading" then
         loading:draw()
@@ -314,11 +344,19 @@ function draw_level()
     draw_layer(map, "parallax")
     draw_layer(map, "background", camera)
     --love.graphics.polygon("fill", objects.player.body:getWorldPoints(objects.player.shape:getPoints()))
+    if objects.player.jumping then
+        player_gfx = objects.player.jump_gfx
+    elseif objects.player.walking then
+        frame = objects.player.walk_animation.frame
+        player_gfx = objects.player.walk_animation.gfx[frame]
+    else
+        player_gfx = objects.player.gfx
+    end
     if objects.player.direction_right then
-        love.graphics.draw(objects.player.gfx, objects.player.body:getX() - 15 - camera.x,
+        love.graphics.draw(player_gfx, objects.player.body:getX() - 15 - camera.x,
                            objects.player.body:getY() - 15, 0, 0.25, 0.25)
     else
-        love.graphics.draw(objects.player.gfx, objects.player.body:getX() + 15 - camera.x,
+        love.graphics.draw(player_gfx, objects.player.body:getX() + 15 - camera.x,
                            objects.player.body:getY() - 15, 0, -0.25, 0.25)
     end
     if objects.key then
