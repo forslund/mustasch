@@ -1,29 +1,39 @@
 local sti = require ("sti")
 require ("menu")
-state = "loading"
+state = "level" -- "loading"
 debug = false
 text = ""
 persisting = 0
 
+
 function beginContact(a, b, coll)
     x,y = coll:getNormal()
-    text = text.."\n"..a:getUserData().." colliding with "..b:getUserData().." with a vector normal of: "..x..", "..y
-    if (a:getUserData() == "Player" and b:getUserData() == "Key") or
-            (a:getUserData() == "Key" and b:getUserData() == "Player") then
+    print(a:getUserData().t, b:getUserData().t)
+    text = text.."\n"..a:getUserData().t.." colliding with "..b:getUserData().t.." with a vector normal of: "..x..", "..y
+    if (a:getUserData().t == "Player" and b:getUserData().t == "Key") or
+            (a:getUserData().t == "Key" and b:getUserData().t == "Player") then
         taken = "Key"
-    elseif a:getUserData() == "Player" and b:getUserData() == "Ground" or
-            a:getUserData() == "Player" and b:getUserData() == "Block" then
-        print(y)
+    elseif a:getUserData().t == "Player" and b:getUserData().t == "Ground" or
+            a:getUserData().t == "Player" and b:getUserData().t == "Door" or
+            a:getUserData().t == "Player" and b:getUserData().t == "Block" then
         if y > 0 then
             dunk_sound:play()
             objects.player.jumping = false
         end
-    elseif a:getUserData() == "Block" and b:getUserData() == "Player" or
-            a:getUserData() == "Ground" and b:getUserData() == "Player" then
-        print(y)
+    elseif a:getUserData().t == "Block" and b:getUserData().t == "Player" or
+            a:getUserData().t == "Door" and b:getUserData().t == "Player" or
+            a:getUserData().t == "Ground" and b:getUserData().t == "Player" then
         if y < 0 then
             dunk_sound:play()
             objects.player.jumping = false
+        end
+    end
+    if a:getUserData().t == "Door" and b:getUserData().t == "Player" or
+            a:getUserData().t == "Player" and b:getUserData().t == "Door" then
+        if a:getUserData().t == "Door" then
+            check_door = a:getUserData().n
+        else
+            check_door = b:getUserData().n
         end
     end
 end
@@ -31,12 +41,12 @@ end
  
 function endContact(a, b, coll)
     persisting = 0    -- reset since they're no longer touching
-    text = text.."\n"..a:getUserData().." uncolliding with "..b:getUserData()
+    text = text.."\n"..a:getUserData().t.." uncolliding with "..b:getUserData().t
 end
  
 function preSolve(a, b, coll)
     if persisting == 0 then    -- only say when they first start touching
-        text = text.."\n"..a:getUserData().." touching "..b:getUserData()
+        text = text.."\n"..a:getUserData().t.." touching "..b:getUserData().t
     elseif persisting < 20 then    -- then just start counting
         text = text.." "..persisting
     end
@@ -58,7 +68,10 @@ function create_key(x, y, name)
     -- Attach fixture to body and give it a density of 1.
     key.fixture = love.physics.newFixture(key.body, key.shape, 0.0001)
     key.fixture:setRestitution(0.5)
-    key.fixture:setUserData("Key")
+    data = {}
+    data.t = "Key"
+    data.n = name
+    key.fixture:setUserData(data)
     key.gfx = love.graphics.newImage("data/gfx/key.png")
     return key
 end
@@ -68,7 +81,7 @@ function create_player(x, y)
     local player = {}
     player.type = "Player"
     player.name = "Player"
-    player.has_key = false
+    player.keys = 0
     -- place the body in the center of the world and make it dynamic,
     -- so it can move around
     player.body = love.physics.newBody(world, x, y, "dynamic")
@@ -78,7 +91,10 @@ function create_player(x, y)
     -- Attach fixture to body and give it a density of 1.
     player.fixture = love.physics.newFixture(player.body, player.shape, 1.2)
     player.fixture:setRestitution(0.1) --let the ball bounce
-    player.fixture:setUserData("Player")
+    data = {}
+    data.t = "Player"
+    data.n = "Player"
+    player.fixture:setUserData(data)
     player.gfx = love.graphics.newImage("data/gfx/hero1.png")
     player.jump_gfx = love.graphics.newImage("data/gfx/hero4.png")
     player.direction_right = true
@@ -103,7 +119,28 @@ function create_block(x, y, w, h, name, no_rotate)
     block.body = love.physics.newBody(world, x, y, "dynamic")
     block.shape = love.physics.newRectangleShape(0, 0, w, h)
     block.fixture = love.physics.newFixture(block.body, block.shape, 0.2) -- A higher density gives it more mass.
-    block.fixture:setUserData("Block")
+    data = {}
+    data.t = "Block"
+    data.name = name
+    block.fixture:setUserData(data)
+    block.body:setLinearDamping(0.5)
+    if no_rotate then
+        block.body:setFixedRotation(true)
+    end
+    return block
+end
+
+function create_door(x, y, w, h, name)
+    local block = {}
+    block.type = "Door"
+    block.name = name
+    block.body = love.physics.newBody(world, x, y, "static")
+    block.shape = love.physics.newRectangleShape(0, 0, w, h)
+    block.fixture = love.physics.newFixture(block.body, block.shape, 0.2) -- A higher density gives it more mass.
+    data = {}
+    data.t = "Door"
+    data.n = block.name
+    block.fixture:setUserData(data)
     block.body:setLinearDamping(0.5)
     if no_rotate then
         block.body:setFixedRotation(true)
@@ -115,17 +152,9 @@ function love.load()
     love.physics.setMeter(64) --the height of a meter our worlds will be 64px
     -- create a world for the bodies to exist in with horizontal gravity of 0
     --  and vertical gravity of 9.81
-    world = love.physics.newWorld(0, 9.81*64, true) 
-    world:setCallbacks(beginContact, endContact, preSolve, postSolve)
     taken = "" -- Collectibles picked up in collision
 
-    objects = {}
-    objects.invisible = {}
-    objects.blocks = {}
-    objects.joints = {}
-    camera = {0, 0}
-
-    load_level("level1")
+    load_level("tutorial")
 end
 
 function create_rope(rope)
@@ -162,6 +191,20 @@ end
 
 
 function load_level(level_name)
+    objects = {}
+    objects.invisible = {}
+    objects.blocks = {}
+    objects.joints = {}
+    check_door = nil
+    camera = {0, 0}
+    current_level = level_name
+
+    if world then
+        world:destroy()
+    end
+
+    world = love.physics.newWorld(0, 9.81*64, true)
+    world:setCallbacks(beginContact, endContact, preSolve, postSolve)
 
     level_path = "data/levels/" .. level_name .. ".lua"
     objects.ground = {}
@@ -188,7 +231,10 @@ function load_level(level_name)
                                                       obj.height)
         ground.fixture = love.physics.newFixture(ground.body, ground.shape)
         ground.fixture:setFriction(0.6)
-        ground.fixture:setUserData("Ground")
+        data = {}
+        data.t = "Ground"
+        data.n = "Ground"
+        ground.fixture:setUserData(data)
         table.insert(objects.ground, ground)
     end
 
@@ -197,10 +243,16 @@ function load_level(level_name)
             objects.player = create_player(obj.x, obj.y)
         elseif obj.type == "key" then
             objects.key = create_key(obj.x, obj.y, obj.name)
+        elseif obj.type == "door" then
+            table.insert(objects.blocks,
+                         create_door(obj.x, obj.y, obj.width, obj.height,
+                                      obj.name))
         elseif obj.type == "block" then
             table.insert(objects.blocks,
                          create_block(obj.x, obj.y, obj.width, obj.height,
                                       obj.name, obj.properties.no_rotate))
+        elseif obj.type == "exit" then
+            objects.exit = obj
         end
     end
     for _, obj in ipairs(objects_layer.objects) do
@@ -230,13 +282,52 @@ function love.update(dt)
 end
 
 
+function check_exit(player, exit)
+    x, y = player.body:getWorldCenter()
+    if exit == nil then
+        return false
+    end
+
+    if x > exit.x and x < exit.x + exit.width and
+            y > exit.y and y < exit.y + exit.height then
+        return true
+    else
+        return false
+    end
+end
+
+
+function check_fallen(player, height)
+    x, y = player.body:getWorldCenter()
+    if y > height + 64 then
+        return true
+    else
+        return false
+    end
+end
+
+
+function open_door(door)
+    for i, b in ipairs(objects.blocks) do
+        print(b.name)
+        if b.type == "Door" and b.name == door then
+            objects.player.keys = objects.player.keys - 1
+            b.fixture:destroy()
+            b.body:destroy()
+            table.remove(objects.blocks, i)
+            break
+        end
+    end
+end
+
+
 function level_update(dt)
     world:update(dt) --this puts the world into motion
     if string.len(text) > 768 then    -- cleanup when 'text' gets too long
         text = "" 
     end
     if taken == "Key" then
-        objects.player.has_key = true
+        objects.player.keys = objects.player.keys + 1
         joint = love.physics.newRopeJoint(objects.player.body,
                                           objects.key.body,
                                           objects.player.body:getX(),
@@ -248,6 +339,12 @@ function level_update(dt)
         key_sound:play()
         taken = ""
     end
+
+    if check_door and objects.player.keys > 0 then
+        print("CHECKING DOOR", check_door)
+        open_door(check_door)
+    end
+    check_door = nil
 
     objects.player.walking = false
     key_pressed = false
