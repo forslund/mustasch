@@ -1,9 +1,11 @@
 local sti = require ("sti")
 require ("menu")
-state = "level" -- "loading"
+state = "menu" -- "loading"
 debug = false
 text = ""
 persisting = 0
+deaths = 0
+end_tune = love.audio.newSource("data/snd/shoreline.ogg", "stream")
 
 
 function beginContact(a, b, coll)
@@ -12,7 +14,11 @@ function beginContact(a, b, coll)
     text = text.."\n"..a:getUserData().t.." colliding with "..b:getUserData().t.." with a vector normal of: "..x..", "..y
     if (a:getUserData().t == "Player" and b:getUserData().t == "Key") or
             (a:getUserData().t == "Key" and b:getUserData().t == "Player") then
-        taken = "Key"
+        if a:getUserData().t == "Key" then
+            taken = a:getUserData()
+        else
+            taken = b:getUserData()
+        end
     elseif a:getUserData().t == "Player" and b:getUserData().t == "Ground" or
             a:getUserData().t == "Player" and b:getUserData().t == "Door" or
             a:getUserData().t == "Player" and b:getUserData().t == "Block" then
@@ -30,6 +36,7 @@ function beginContact(a, b, coll)
     end
     if a:getUserData().t == "Door" and b:getUserData().t == "Player" or
             a:getUserData().t == "Player" and b:getUserData().t == "Door" then
+        print('DOOR COLLISION')
         if a:getUserData().t == "Door" then
             check_door = a:getUserData().n
         else
@@ -57,7 +64,7 @@ function postSolve(a, b, coll, normalimpulse, tangentimpulse)
 -- we won't do anything with this function
 end
 
-function create_key(x, y, name)
+function create_key(x, y, name, heavy)
     local key = {}
     key.type = "key"
     key.name = name
@@ -66,7 +73,13 @@ function create_key(x, y, name)
     key.body:setLinearDamping(5)
     key.shape = love.physics.newRectangleShape(5, 10)
     -- Attach fixture to body and give it a density of 1.
-    key.fixture = love.physics.newFixture(key.body, key.shape, 0.0001)
+    if heavy then
+        key.body:setGravityScale(0.25)
+        density = 0.3
+    else
+        density = 0.1
+    end
+    key.fixture = love.physics.newFixture(key.body, key.shape, density)
     key.fixture:setRestitution(0.5)
     data = {}
     data.t = "Key"
@@ -82,12 +95,16 @@ function create_player(x, y)
     player.type = "Player"
     player.name = "Player"
     player.keys = 0
-    -- place the body in the center of the world and make it dynamic,
-    -- so it can move around
-    player.body = love.physics.newBody(world, x, y, "dynamic")
+
+    width = 27
+    height = 30
+    player.height = height
+    player.width = width 
+    player.body = love.physics.newBody(world, x + width / 2, y + height / 2,
+                                       "dynamic")
     player.body:setFixedRotation(true)
     -- the ball's shape has a radius of 20
-    player.shape = love.physics.newRectangleShape(30, 35)
+    player.shape = love.physics.newRectangleShape(width, height)
     -- Attach fixture to body and give it a density of 1.
     player.fixture = love.physics.newFixture(player.body, player.shape, 1.2)
     player.fixture:setRestitution(0.1) --let the ball bounce
@@ -116,7 +133,7 @@ function create_block(x, y, w, h, name, no_rotate)
     local block = {}
     block.type = "Block"
     block.name = name
-    block.body = love.physics.newBody(world, x, y, "dynamic")
+    block.body = love.physics.newBody(world, x + w / 2, y + h / 2, "dynamic")
     block.shape = love.physics.newRectangleShape(0, 0, w, h)
     block.fixture = love.physics.newFixture(block.body, block.shape, 0.2) -- A higher density gives it more mass.
     data = {}
@@ -134,7 +151,7 @@ function create_door(x, y, w, h, name)
     local block = {}
     block.type = "Door"
     block.name = name
-    block.body = love.physics.newBody(world, x, y, "static")
+    block.body = love.physics.newBody(world, x + w / 2, y + h / 2, "static")
     block.shape = love.physics.newRectangleShape(0, 0, w, h)
     block.fixture = love.physics.newFixture(block.body, block.shape, 0.2) -- A higher density gives it more mass.
     data = {}
@@ -152,9 +169,8 @@ function love.load()
     love.physics.setMeter(64) --the height of a meter our worlds will be 64px
     -- create a world for the bodies to exist in with horizontal gravity of 0
     --  and vertical gravity of 9.81
-    taken = "" -- Collectibles picked up in collision
-
-    load_level("tutorial")
+    taken = {} -- Collectibles picked up in collision
+    deaths = 0
 end
 
 function create_rope(rope)
@@ -208,9 +224,9 @@ function load_level(level_name)
 
     level_path = "data/levels/" .. level_name .. ".lua"
     objects.ground = {}
-
     objects.joints = {}
     objects.blocks = {}
+    objects.keys = {}
 
     map = sti(level_path)
     for _, layer in ipairs(map.layers) do
@@ -242,7 +258,8 @@ function load_level(level_name)
         if obj.type == "player" then
             objects.player = create_player(obj.x, obj.y)
         elseif obj.type == "key" then
-            objects.key = create_key(obj.x, obj.y, obj.name)
+            table.insert(objects.keys, create_key(obj.x, obj.y, obj.name,
+                                                  obj.properties.heavy))
         elseif obj.type == "door" then
             table.insert(objects.blocks,
                          create_door(obj.x, obj.y, obj.width, obj.height,
@@ -253,12 +270,13 @@ function load_level(level_name)
                                       obj.name, obj.properties.no_rotate))
         elseif obj.type == "exit" then
             objects.exit = obj
+        elseif obj.type == "end" then
+            objects.ending = obj
         end
     end
     for _, obj in ipairs(objects_layer.objects) do
         print(obj.type)
         if obj.type == "rope" then
-            print('CREATING ROPE')
             create_rope(obj)
         end
     end
@@ -269,6 +287,9 @@ function load_level(level_name)
     key_sound = love.audio.newSource("data/snd/key.wav", "static")
     dunk_sound = love.audio.newSource("data/snd/dunk.wav", "static")
     dunk_sound:setVolume(0.15)
+    jump_sound = love.audio.newSource("data/snd/jump.wav", "static")
+    jump_sound:setVolume(0.25)
+    door_sound = love.audio.newSource("data/snd/door.wav", "static")
 end
 
 function love.update(dt)
@@ -276,8 +297,15 @@ function love.update(dt)
         state = loading:update(dt)
     elseif state == "menu" then
         state = menu:update(dt)
+        if state == "level" then
+            load_level("tutorial")
+            start_time = love.timer.getTime()
+            deaths = 0
+        end
     elseif state == "level" then
         state = level_update(dt)
+    elseif state == "ending" then
+        state = menu:ending_update(dt)
     end
 end
 
@@ -296,6 +324,20 @@ function check_exit(player, exit)
     end
 end
 
+function check_end(player, ending)
+    x, y = player.body:getWorldCenter()
+    if ending == nil then
+        return false
+    end
+
+    if x > ending.x and x < ending.x + ending.width and
+            y > ending.y and y < ending.y + ending.height then
+        return true
+    else
+        return false
+    end
+end
+
 
 function check_fallen(player, height)
     x, y = player.body:getWorldCenter()
@@ -308,40 +350,70 @@ end
 
 
 function open_door(door)
+    to_remove = {}
     for i, b in ipairs(objects.blocks) do
-        print(b.name)
+        print(door, b.name, b.type)
         if b.type == "Door" and b.name == door then
             objects.player.keys = objects.player.keys - 1
             b.fixture:destroy()
             b.body:destroy()
             table.remove(objects.blocks, i)
+            door_sound:play()
             break
         end
     end
 end
 
+function check_ground(fixture)
+    if fixture:getUserData().t ~= "Player" then
+        on_ground = true
+        return false
+    end
+    return true
+end
 
 function level_update(dt)
+    x_vel, y_vel = objects.player.body:getLinearVelocity()
+
+    -- Check if player is on ground
+    feet_x, feet_y = objects.player.body:getWorldCenter()
+    feet_x = feet_x - objects.player.width / 2
+    feet_y = feet_y + objects.player.height / 2 + 1
+    on_ground = false
+    world:queryBoundingBox(feet_x, feet_y,
+                           feet_x + objects.player.width, feet_y + 3,
+                           check_ground)
+    if not on_ground then
+        objects.player.jumping = true
+    end
+    on_ground = false
+
+
     world:update(dt) --this puts the world into motion
     if string.len(text) > 768 then    -- cleanup when 'text' gets too long
         text = "" 
     end
-    if taken == "Key" then
+    if taken.t == "Key" then
         objects.player.keys = objects.player.keys + 1
-        joint = love.physics.newRopeJoint(objects.player.body,
-                                          objects.key.body,
-                                          objects.player.body:getX(),
-                                          objects.player.body:getY() + 20,
-                                          objects.key.body:getX(),
-                                          objects.key.body:getY(),
-                                          30, false)
-        table.insert(objects.invisible, joint)
+        for _, key in ipairs(objects.keys) do
+            if key.name == taken.n then
+                key.body:setGravityScale(0.1)
+                joint = love.physics.newRopeJoint(objects.player.body,
+                                                  key.body,
+                                                  objects.player.body:getX(),
+                                                  objects.player.body:getY() + 20,
+                                                  key.body:getX(),
+                                                  key.body:getY(),
+                                                  30, false)
+                table.insert(objects.invisible, joint)
+                break
+            end
+        end
         key_sound:play()
-        taken = ""
+        taken = {}
     end
 
     if check_door and objects.player.keys > 0 then
-        print("CHECKING DOOR", check_door)
         open_door(check_door)
     end
     check_door = nil
@@ -354,40 +426,54 @@ function level_update(dt)
     if love.keyboard.isDown("right") then
         objects.player.walking = true
         if not objects.player.jumping then
-            x = 120
+            x = 110
         else
-            x = 30
+            x = 15
         end
         key_pressed = true
         objects.player.direction_right = true
     elseif love.keyboard.isDown("left") then
         if not objects.player.jumping then
-            x = -120
+            x = -110
         else
-            x = -30
+            x = -15
         end
         key_pressed = true
         objects.player.walking = true
         objects.player.direction_right = false
     end
     if love.keyboard.isDown("up") and not objects.player.jumping then
-        y = -100 * 60
+        y = -90
         objects.player.jumping = true
         key_pressed = true
+        jump_sound:play()
     end
 
     animate_player(objects.player.walking, dt)
 
+
     if key_pressed then
-        objects.player.body:applyForce(x, y * 1.1)
-        --objects.player.body:applyLinearImpulse(x * dt, y * dt)
+        objects.player.body:applyForce(x, 0)
+        objects.player.body:applyLinearImpulse(0, y)
     end
 
+    if check_exit(objects.player, objects.exit) then
+        load_level(objects.exit.name)
+    end
+    if check_fallen(objects.player, map.height * 32) then
+        deaths = deaths + 1
+        load_level(current_level)
+    end
+    if check_end(objects.player, objects.ending) then
+        end_tune:play()
+        end_time = love.timer.getTime()
+        return "ending"
+    end
     return "level"
 end
 
 function animate_player(walking, dt)
-    print(dt)
+    --print(dt)
     if walking then
         objects.player.walk_animation.time = objects.player.walk_animation.time + dt
     else
@@ -408,8 +494,12 @@ function love.draw()
         loading:draw()
     elseif state == "menu" then
         menu:draw()
+        deaths = 0
     elseif state == "level" then
         draw_level()
+    elseif state == "ending" then
+        menu:draw_ending(deaths, math.floor(end_time - start_time))
+    
     end
 end
 
@@ -429,7 +519,7 @@ function draw_layer(map, layer, camera)
         end
     end
     if active then
-        map:draw(-camera.x)
+        map:draw(-camera.x, -camera.y)
         active.visible = false
     end
 end
@@ -438,10 +528,18 @@ end
 function draw_level()
     camera = {}
     camera.x = objects.player.body:getX() - 320
+    camera.y = objects.player.body:getY() - 240
     if camera.x < 0 then
         camera.x = 0
     elseif camera.x > map.width * 32  - 640 then
         camera.x = map.width * 32 - 640
+    end
+
+    if camera.y > map.height * 32 - 480 then
+        camera.y = map.height * 32 - 480
+    end
+    if camera.y < 0 then
+        camera.y = 0
     end
 
     -- set the drawing color to green for the ground
@@ -460,22 +558,35 @@ function draw_level()
         player_gfx = objects.player.gfx
     end
     if objects.player.direction_right then
-        love.graphics.draw(player_gfx, objects.player.body:getX() - 15 - camera.x,
-                           objects.player.body:getY() - 15, 0, 0.25, 0.25)
+        love.graphics.draw(player_gfx,
+             objects.player.body:getX() - objects.player.width / 2 - camera.x,
+             objects.player.body:getY() - objects.player.height / 2 - camera.y,
+             0, 0.22, 0.22)
     else
-        love.graphics.draw(player_gfx, objects.player.body:getX() + 15 - camera.x,
-                           objects.player.body:getY() - 15, 0, -0.25, 0.25)
+        love.graphics.draw(player_gfx,
+             objects.player.body:getX() + objects.player.width / 2 - camera.x,
+             objects.player.body:getY() - objects.player.height / 2 - camera.y,
+             0, -0.22, 0.22)
     end
-    if objects.key then
+    for _, key in ipairs(objects.keys) do
         --love.graphics.polygon("fill", objects.key.body:getWorldPoints(objects.key.shape:getPoints()))
-        love.graphics.draw(objects.key.gfx, objects.key.body:getX() - 10 - camera.x,
-                       objects.key.body:getY() - 10, 0, 0.1, 0.1)
+        love.graphics.draw(
+            key.gfx, key.body:getX() - 10 - camera.x,
+            key.body:getY() - camera.y - 15, 0, 0.1, 0.1)
     end
     
     love.graphics.setColor(0.3, 0.3, 0.80)
     for _, block in ipairs(objects.blocks) do
+        if block.type == "Block" then
+            love.graphics.setColor(0.3, 0.3, 0.80)
+        else
+            love.graphics.setColor(0.8, 0.3, 0.3)
+        end
         x1, y1, x2, y2, x3, y3, x4, y4 = block.body:getWorldPoints(block.shape:getPoints())
-        love.graphics.polygon("fill", x1 - camera.x, y1, x2 - camera.x, y2, x3 - camera.x, y3, x4 - camera.x, y4)
+        love.graphics.polygon("fill", x1 - camera.x, y1 - camera.y,
+                              x2 - camera.x, y2 - camera.y,
+                              x3 - camera.x, y3 - camera.y,
+                              x4 - camera.x, y4 - camera.y)
     end
     
     love.graphics.setColor(1, 1, 1)
@@ -491,6 +602,7 @@ function draw_level()
     love.graphics.setLineStyle("smooth")
     for _, j in ipairs(objects.joints) do
         x1, y1, x2, y2 = j:getAnchors()
-        love.graphics.line(x1 - camera.x, y1, x2 - camera.x, y2)
+        love.graphics.line(x1 - camera.x, y1 - camera.y,
+                           x2 - camera.x, y2 - camera.y)
     end
 end
