@@ -448,6 +448,10 @@ function level_update(dt)
         key_pressed = true
         jump_sound:play()
     end
+    if love.keyboard.isDown("r") then
+        deaths = deaths + 1
+        load_level(current_level)
+    end
 
     animate_player(objects.player.walking, dt)
 
