@@ -124,8 +124,8 @@ return {
           name = "Door5",
           type = "door",
           shape = "rectangle",
-          x = 1088,
-          y = 448,
+          x = 1085.33,
+          y = 474.667,
           width = 64,
           height = 64,
           rotation = 0,
@@ -323,21 +323,6 @@ return {
           properties = {}
         },
         {
-          id = 27,
-          name = "key6",
-          type = "key",
-          shape = "rectangle",
-          x = 1653,
-          y = 518,
-          width = 26.6667,
-          height = 21.3333,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["weightless"] = true
-          }
-        },
-        {
           id = 30,
           name = "key7",
           type = "key",
@@ -418,9 +403,9 @@ return {
           type = "end",
           shape = "rectangle",
           x = 1864,
-          y = 414,
+          y = 262,
           width = 54,
-          height = 64,
+          height = 216,
           rotation = 0,
           visible = true,
           properties = {}

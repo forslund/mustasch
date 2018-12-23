@@ -11,7 +11,7 @@
   <object id="3" name="Door2" type="door" x="896" y="352" width="64" height="64"/>
   <object id="4" name="Door3" type="door" x="832" y="544" width="64" height="64"/>
   <object id="5" name="Door4" type="door" x="960" y="544" width="64" height="64"/>
-  <object id="6" name="Door5" type="door" x="1088" y="448" width="64" height="64"/>
+  <object id="6" name="Door5" type="door" x="1085.33" y="474.667" width="64" height="64"/>
   <object id="7" name="Door6" type="door" x="1024" y="352" width="32" height="32"/>
   <object id="8" name="Door7" type="door" x="1184" y="288" width="64" height="32"/>
   <object id="9" name="Door8" type="door" x="1312" y="320" width="64" height="32"/>
@@ -42,11 +42,6 @@
    </properties>
   </object>
   <object id="26" name="Door12" type="door" x="1664" y="576" width="64" height="32"/>
-  <object id="27" name="key6" type="key" x="1653" y="518" width="26.6667" height="21.3333">
-   <properties>
-    <property name="weightless" type="bool" value="true"/>
-   </properties>
-  </object>
   <object id="30" name="key7" type="key" x="1565.67" y="0.33335" width="26.6667" height="21.3333">
    <properties>
     <property name="weightless" type="bool" value="false"/>
@@ -72,7 +67,7 @@
     <property name="weightless" type="bool" value="false"/>
    </properties>
   </object>
-  <object id="37" name="the end" type="end" x="1864" y="414" width="54" height="64"/>
+  <object id="37" name="the end" type="end" x="1864" y="262" width="54" height="216"/>
  </objectgroup>
  <imagelayer id="4" name="parallax">
   <image source="bg.png" width="640" height="480"/>
