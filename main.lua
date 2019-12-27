@@ -428,7 +428,7 @@ function level_update(dt)
         if not objects.player.jumping then
             x = 110
         else
-            x = 15
+            x = 35
         end
         key_pressed = true
         objects.player.direction_right = true
@@ -436,7 +436,7 @@ function level_update(dt)
         if not objects.player.jumping then
             x = -110
         else
-            x = -15
+            x = -35
         end
         key_pressed = true
         objects.player.walking = true
