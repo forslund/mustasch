@@ -86,6 +86,7 @@ function create_key(x, y, name, heavy)
     data.n = name
     key.fixture:setUserData(data)
     key.gfx = love.graphics.newImage("data/gfx/key.png")
+    key.gfx_used = love.graphics.newImage("data/gfx/key_used.png")
     return key
 end
 
@@ -94,7 +95,7 @@ function create_player(x, y)
     local player = {}
     player.type = "Player"
     player.name = "Player"
-    player.keys = 0
+    player.keys = {}
 
     width = 27
     height = 30
@@ -354,7 +355,8 @@ function open_door(door)
     for i, b in ipairs(objects.blocks) do
         print(door, b.name, b.type)
         if b.type == "Door" and b.name == door then
-            objects.player.keys = objects.player.keys - 1
+            key = table.remove(objects.player.keys, 1)
+            key.gfx = key.gfx_used
             b.fixture:destroy()
             b.body:destroy()
             table.remove(objects.blocks, i)
@@ -394,9 +396,9 @@ function level_update(dt)
         text = "" 
     end
     if taken.t == "Key" then
-        objects.player.keys = objects.player.keys + 1
         for _, key in ipairs(objects.keys) do
             if key.name == taken.n then
+                table.insert(objects.player.keys, key)
                 key.body:setGravityScale(0.1)
                 joint = love.physics.newRopeJoint(objects.player.body,
                                                   key.body,
@@ -413,7 +415,7 @@ function level_update(dt)
         taken = {}
     end
 
-    if check_door and objects.player.keys > 0 then
+    if check_door and table.getn(objects.player.keys) > 0 then
         open_door(check_door)
     end
     check_door = nil
